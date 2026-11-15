@@ -4,7 +4,7 @@ set -e
 repo="$(cd "$(dirname "$0")" && pwd)"
 home="${HERMES_HOME:-$HOME/.hermes}"
 skills="$home/skills/education"
-mkdir -p "$skills" "$repo/Disciplinas"
+mkdir -p "$skills" "$repo/Disciplinas" "$repo/Datas"
 ln -sfn "$repo" "$home/study-tracker"
 for s in "$repo"/skills/*/; do
     ln -sfn "${s%/}" "$skills/$(basename "$s")"

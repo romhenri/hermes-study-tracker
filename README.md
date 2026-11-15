@@ -25,7 +25,9 @@ A ideia central é separar assunto **estudado** de assunto **dominado**. O statu
      │ 1. SETUP                     início do semestre  │
      │ skill: study-setup                               │
      │ "minhas disciplinas são Cálculo I e Física I"    │
-     │ → setup · status                                 │
+     │ "a P1 de Cálculo I é dia 2/12, cai limites"      │
+     │ → setup · status · exam                          │
+     │ cria Datas/Provas.md com as datas de prova       │
      └─────────────────────────┬────────────────────────┘
                                │  cria Disciplinas/<Nome>.md
                                ▼
@@ -68,8 +70,9 @@ A ideia central é separar assunto **estudado** de assunto **dominado**. O statu
  │   ┌──────────────────────────────────────────────────┐
  │   │ 6. REVISAR                                       │
  │   │ skill: study-insights                            │
- │   │ "o que devo revisar?"                            │
- │   │ → review                                         │
+ │   │ "o que devo revisar?" ou check-in 19h (Telegram) │
+ │   │ → exams · review                                 │
+ │   │ prova perto puxa a disciplina e pede prioridade  │
  │   │ acerto baixo · dias parado · erro recorrente     │
  │   └─────────────────────────┬────────────────────────┘
  │                             │

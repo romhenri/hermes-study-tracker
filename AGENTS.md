@@ -7,6 +7,7 @@ A ideia central: distinguir assunto **estudado** de assunto **dominado**, com ba
 ## Layout
 
 - `Disciplinas/` dados do usuário, uma nota por disciplina (`Cálculo I.md`). Fora do git: o repo é público.
+- `Datas/Provas.md` datas de prova de todas as disciplinas. Também fora do git.
 - `scripts/study.py` única porta de leitura e escrita das notas; `--help` lista os comandos.
 - `scripts/test_study.py` self-check: `python3 scripts/test_study.py` imprime `ok`.
 - `skills/` skills do Hermes, uma por intenção: `study-setup` (disciplinas do semestre), `to-topics` (lista bruta de conteúdos → assuntos e subassuntos), `study-log` (registrar estudo), `study-insights` (relatório, evolução, revisão). A ordem de uso está em `loop.md`.
@@ -31,6 +32,17 @@ A ideia central: distinguir assunto **estudado** de assunto **dominado**, com ba
 - `[ ]` não iniciado, `[/]` estudando, `[x]` concluído (`[~]` legado também vale estudando). Subassunto = 2 espaços de recuo.
 - Registro: data ISO, caminho do assunto (`Pai/Filho`), `acertos/total` ou `—` sem exercícios, campos opcionais `erros:` e `nota:`.
 - O script edita só a linha que muda e preserva o resto: texto livre, seções extras (`## Provas`), links. O usuário pode marcar checkbox no Obsidian.
+
+`Datas/Provas.md`, uma linha por prova:
+
+```markdown
+- 2026-12-02 | Cálculo I | P1 | assuntos: Limites, Derivadas
+- 2026-12-10 | Física I | P2
+```
+
+- Sem `assuntos:`, a prova cobre a ementa inteira; um assunto pai cobre seus subassuntos.
+- Prova a até `URGENT_DAYS` (21) dias sobe seus assuntos não dominados no `review`, incluindo os nunca estudados; `exams` mostra pendentes e ritmo (assuntos por dia).
+- `exam` com disciplina e nome já existentes reescreve a linha (prova adiada); prova passada fica no arquivo e sai do `exams`.
 
 ## Regras
 

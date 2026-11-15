@@ -7,7 +7,9 @@ O semestre é um ciclo: você estuda, conta para o Hermes, ele mostra onde você
      │ 1. SETUP                     início do semestre  │
      │ skill: study-setup                               │
      │ "minhas disciplinas são Cálculo I e Física I"    │
-     │ → setup · status                                 │
+     │ "a P1 de Cálculo I é dia 2/12, cai limites"      │
+     │ → setup · status · exam                          │
+     │ cria Datas/Provas.md com as datas de prova       │
      └─────────────────────────┬────────────────────────┘
                                │  cria Disciplinas/<Nome>.md
                                ▼
@@ -50,8 +52,9 @@ O semestre é um ciclo: você estuda, conta para o Hermes, ele mostra onde você
  │   ┌──────────────────────────────────────────────────┐
  │   │ 6. REVISAR                                       │
  │   │ skill: study-insights                            │
- │   │ "o que devo revisar?"                            │
- │   │ → review                                         │
+ │   │ "o que devo revisar?" ou check-in 19h (Telegram) │
+ │   │ → exams · review                                 │
+ │   │ prova perto puxa a disciplina e pede prioridade  │
  │   │ acerto baixo · dias parado · erro recorrente     │
  │   └─────────────────────────┬────────────────────────┘
  │                             │
@@ -60,13 +63,15 @@ O semestre é um ciclo: você estuda, conta para o Hermes, ele mostra onde você
 
 | Passo | Skill | Comandos do `study.py` | Quando |
 |---|---|---|---|
-| 1. Setup | `study-setup` | `setup`, `status` | Início do semestre |
+| 1. Setup | `study-setup` | `setup`, `status`, `exam` | Início do semestre; data de prova nova ou adiada |
 | 2. Organizar assuntos | `to-topics` | `map`, `setup` | Ementa colada no setup, ou lista nova no meio do semestre |
 | 3. Estudar | nenhuma | nenhum | Você estuda |
 | 4. Registrar | `study-log` | `log`, `status` | Depois de cada sessão |
 | 5. Analisar | `study-insights` | `report`, `map`, `compare`, `history` | Quando quiser saber como está |
-| 6. Revisar | `study-insights` | `review` | Antes de decidir o que estudar |
+| 6. Revisar | `study-insights` | `exams`, `review` | Antes de decidir o que estudar; check-in das 19h nos dias úteis |
 
 A `to-topics` também roda fora do setup: colar uma lista nova de conteúdos a qualquer momento ("o professor passou estes tópicos para a P2") acrescenta os assuntos à nota sem apagar os que já existem.
+
+Com prova a até 21 dias, a revisão começa por ela: mostra quantos assuntos faltam dominar e o ritmo por dia, e pergunta se você quer priorizar aquela disciplina.
 
 Os passos 4 a 6 podem acontecer numa mesma mensagem: "vi integrais, acertei 7 de 10; o que revisar amanhã?" aciona `study-log` e depois `study-insights`.

@@ -10,7 +10,8 @@ os.environ["STUDY_TODAY"] = "2026-11-14"
 sys.path.insert(0, os.path.dirname(__file__))
 import study  # noqa: E402
 
-study.DIR = Path(tempfile.mkdtemp())
+study.ROOT = Path(tempfile.mkdtemp())
+study.DIR, study.EXAMS = study.ROOT / "Disciplinas", study.ROOT / "Datas" / "Provas.md"
 
 
 def run(*argv):
@@ -72,4 +73,35 @@ assert "  - [~] MRUV\n  - [ ] Lançamento\n" in f, f  # "MRUV" achou o subassunt
 assert f.rstrip().endswith("## Registro\n- 2026-11-14 | Cinemática/MRUV | 8/10"), f  # seção criada
 run("add", "Física I", "Dinâmica/MRUV")
 assert "ambíguo" in fails("log", "Física I", "MRUV")
+
+# Provas: Datas/Provas.md, escopo por assunto, prioridade na revisão.
+assert "Nenhuma prova futura" in run("exams")
+assert "não está na ementa" in fails("exam", "Cálculo I", "2026-11-24", "--topics", "Séries de Fourier")
+run("exam", "Cálculo I", "2026-11-24", "--name", "P1", "--topics", "limites,derivadas")
+p = study.EXAMS.read_text()
+assert p == "# Provas\n\n- 2026-11-24 | Cálculo I | P1 | assuntos: Limites, Derivadas\n", p
+
+e = run("exams")
+assert "P1 de Cálculo I em 2026-11-24 (10 dias) | URGENTE" in e, e
+# Folhas no escopo: Limites (não iniciado) e Regra da cadeia (dominado); "Derivadas" é pai.
+assert "Escopo: 2 assuntos (Limites, Derivadas) | dominados 1 | pendentes 1 (não iniciados 1)" in e, e
+assert "Pendentes: Limites (sem exercícios)" in e, e
+
+rv = run("review").splitlines()
+assert rv[0].endswith("Cálculo I › Limites: P1 em 10d, ainda não iniciado"), rv  # nunca estudado, mas prova chegando
+assert any(l.startswith(" 0.49  Cálculo I › Derivadas/Regra da cadeia") for l in rv), rv  # dominado: sem bônus
+assert not any("› Derivadas:" in l for l in rv), rv  # pai não entra
+
+# Mesma prova de novo = atualiza a linha (nome original mantido); escopo vazio = ementa inteira.
+assert "Atualizada" in run("exam", "calculo i", "2026-11-26", "--name", "p1")
+assert study.EXAMS.read_text().count("P1") == 1 and "- 2026-11-26 | Cálculo I | P1\n" in study.EXAMS.read_text()
+assert "Próxima prova: P1 em 2026-11-26 (12 dias)" in run("report", "Cálculo I")
+assert "Escopo: 4 assuntos (ementa inteira)" in run("exams", "--subject", "Cálculo I")
+
+# Prova passada some de exams; linhas escritas à mão no Provas.md são preservadas.
+study.EXAMS.write_text(study.EXAMS.read_text() + "\nLembrar: P1 com consulta\n")
+run("exam", "Física I", "2026-11-01", "--name", "P0")
+assert "Nenhuma prova futura" in run("exams", "--subject", "Física I")
+assert "Lembrar: P1 com consulta" in study.EXAMS.read_text()
+
 print("ok")

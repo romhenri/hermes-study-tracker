@@ -12,6 +12,8 @@ Uso (o agente Hermes chama isto pelo terminal):
   study.py review   [--subject "Cálculo I"] [--n 5]
   study.py compare  "Cálculo I" [--days 14]
   study.py history  "Cálculo I" ["Integrais"] [--n 10]
+  study.py exam     "Cálculo I" 2026-12-02 [--name P1] [--topics "Limites,Derivadas"]
+  study.py exams    [--subject "Cálculo I"]
 
 Formato de cada arquivo (editável à mão):
   # Cálculo I
@@ -22,6 +24,9 @@ Formato de cada arquivo (editável à mão):
   ## Registro
   - 2026-11-14 | Derivadas | 7/10 | erros: erro de sinal | nota: texto livre
   - 2026-11-15 | Limites | —         sessão sem exercícios
+
+Datas/Provas.md:
+  - 2026-12-02 | Cálculo I | P1 | assuntos: Limites, Derivadas     sem "assuntos:" = ementa inteira
 """
 import argparse
 import os
@@ -32,13 +37,19 @@ from collections import Counter
 from datetime import date, timedelta
 from pathlib import Path
 
-# Disciplinas/ fica na raiz do vault (o repo); resolve() segue o symlink de instalação.
-DIR = Path(os.environ.get("STUDY_DIR") or Path(__file__).resolve().parents[1] / "Disciplinas").expanduser()
+# A raiz do vault é o repo; resolve() segue o symlink de instalação.
+ROOT = Path(os.environ.get("STUDY_ROOT") or Path(__file__).resolve().parents[1]).expanduser()
+DIR = ROOT / "Disciplinas"
+EXAMS = ROOT / "Datas" / "Provas.md"
 MARK = {" ": "todo", "/": "doing", "~": "doing", "x": "done"}  # "~" aceito por compatibilidade
 SYMBOL = {"todo": " ", "doing": "/", "done": "x"}
 STATUS = {"todo": "não iniciado", "doing": "estudando", "done": "concluído"}
 TOPIC_RE = re.compile(r"^(\s*)- \[([ /~xX])\] (.+?)\s*$")
 LOG_RE = re.compile(r"^- (\d{4}-\d{2}-\d{2}) \| (.+?) \| (?:(\d+)/(\d+)|—)(?: \| (.*))?$")
+EXAM_RE = re.compile(r"^- (\d{4}-\d{2}-\d{2}) \| (.+?) \| (.+?)(?: \| assuntos: (.*))?$")
+
+# Prova a até URGENT_DAYS dias puxa seus assuntos não dominados para o topo da revisão.
+URGENT_DAYS = 21
 
 # Domínio: olha só as últimas sessões com exercícios, para refletir o nível atual.
 RECENT_SESSIONS = 3
@@ -90,6 +101,9 @@ class Discipline:
                     elif norm(label) == "nota":
                         log["notes"] = value.strip()
                 self.logs.append(log)
+        keys = [key(t["path"]) for t in self.topics]
+        for t, k in zip(self.topics, keys):
+            t["leaf"] = not any(o.startswith(k + "/") for o in keys)
 
     def find(self, path):
         """Caminho completo, ou só o nome de um subassunto ("MRUV" acha "Cinemática/MRUV") se for único."""
@@ -189,16 +203,47 @@ def stats(d, t, today):
     }
 
 
-def review_score(t, s):
+def load_exams():
+    if not EXAMS.exists():
+        return []
+    exams = []
+    for i, l in enumerate(EXAMS.read_text(encoding="utf-8").splitlines()):
+        if m := EXAM_RE.match(l):
+            exams.append({"day": m[1], "subject": m[2].strip(), "name": m[3].strip(), "line": i,
+                          "topics": [x.strip() for x in (m[4] or "").split(",") if x.strip()]})
+    return sorted(exams, key=lambda e: e["day"])
+
+
+def upcoming(exams, d, today):
+    return [e for e in exams if slug(e["subject"]) == slug(d.title) and e["day"] >= today.isoformat()]
+
+
+def in_scope(e, t):
+    k = key(t["path"])
+    return not e["topics"] or any(k == key(x) or k.startswith(key(x) + "/") for x in e["topics"])
+
+
+def exam_for(exams, d, t, today):
+    """(dias, prova) da prova mais próxima, dentro de URGENT_DAYS, que cobre o assunto."""
+    for e in upcoming(exams, d, today):
+        days = (date.fromisoformat(e["day"]) - today).days
+        if days <= URGENT_DAYS and in_scope(e, t):
+            return days, e
+    return None
+
+
+def review_score(t, s, exam=None):
     """Maior = revisar antes. ponytail: heurística linear, troque por SM-2 se quiser repetição espaçada de verdade."""
+    boost = (URGENT_DAYS - exam[0]) / 7 + 1 if exam and s["level"] != "dominado" else 0
     if not s["sessions"]:
-        return None
+        # Nunca estudado só entra com prova chegando, e só a folha (o pai é coberto pelos filhos).
+        return round(boost + 1, 2) if boost and t["leaf"] else None
     score = min(s["days_since"] / 14, 1.5)
     score += 2 * (1 - s["acc"]) if s["acc"] is not None else 0.5
     score += 0.3 * len(s["recurring"])
     if t["status"] == "done" and s["level"] != "dominado":
         score += 0.5  # "concluído" sem domínio comprovado
-    return round(score, 2)
+    return round(score + boost, 2)
 
 
 def fmt_acc(acc):
@@ -237,15 +282,20 @@ def cmd_map(a, today):
 
 def cmd_report(a, today):
     ds = chosen(a.subject)
+    exams = load_exams()
     if not ds:
         print("Nenhuma disciplina cadastrada ainda.")
     for d in ds:
         ts = [(t, stats(d, t, today)) for t in d.topics]
+        nxt = upcoming(exams, d, today)
         n = len(ts)
         c = Counter(t["status"] for t, _ in ts)
         levels = Counter(s["level"] for _, s in ts)
         q = sum(l["total"] for l in d.logs)
         print(f"\n## {d.title}")
+        if nxt:
+            print(f"  Próxima prova: {nxt[0]['name']} em {nxt[0]['day']} "
+                  f"({(date.fromisoformat(nxt[0]['day']) - today).days} dias)")
         print(f"  Ementa: {n} assuntos | concluídos {c['done']} ({pct(c['done'], n)}) | estudando {c['doing']} | "
               f"não iniciados {c['todo']}")
         print(f"  Domínio: {levels['dominado']} de {n} dominados ({pct(levels['dominado'], n)}) | "
@@ -255,7 +305,8 @@ def cmd_report(a, today):
         fake = [t["path"] for t, s in ts if t["status"] == "done" and s["level"] != "dominado"]
         if fake:
             print(f"  Concluídos sem domínio comprovado: {', '.join(fake)}")
-        prio = sorted(((review_score(t, s), t["path"]) for t, s in ts if review_score(t, s) is not None), reverse=True)
+        scored = ((review_score(t, s, exam_for(exams, d, t, today)), t["path"]) for t, s in ts)
+        prio = sorted((x for x in scored if x[0] is not None), reverse=True)
         print(f"  Prioridades de revisão: {', '.join(p for _, p in prio[:3]) or 'nenhuma'}")
         todo = [t["path"] for t, _ in ts if t["status"] == "todo"]
         if todo:
@@ -263,18 +314,67 @@ def cmd_report(a, today):
 
 
 def cmd_review(a, today):
-    ranked = []
+    ranked, exams = [], load_exams()
     for d in chosen(a.subject):
         for t in d.topics:
-            s = stats(d, t, today)
-            if (score := review_score(t, s)) is not None:
-                ranked.append((score, d, t, s))
+            s, exam = stats(d, t, today), exam_for(exams, d, t, today)
+            if (score := review_score(t, s, exam)) is not None:
+                ranked.append((score, d, t, s, exam))
     ranked.sort(key=lambda x: x[0], reverse=True)
     if not ranked:
         print("Sem histórico suficiente para recomendar revisões.")
-    for score, d, t, s in ranked[: a.n]:
-        print(f"{score:>5}  {d.title} › {t['path']}: {s['level']}, acerto {fmt_acc(s['acc'])}, "
-              f"{s['days_since']}d sem estudar" + (f", erros: {', '.join(s['recurring'])}" if s["recurring"] else ""))
+    for score, d, t, s, exam in ranked[: a.n]:
+        why = [f"{exam[1]['name']} em {exam[0]}d"] if exam else []
+        if s["sessions"]:
+            why += [s["level"], f"acerto {fmt_acc(s['acc'])}", f"{s['days_since']}d sem estudar"]
+        else:
+            why.append("ainda não iniciado")
+        if s["recurring"]:
+            why.append("erros: " + ", ".join(s["recurring"]))
+        print(f"{score:>5}  {d.title} › {t['path']}: " + ", ".join(why))
+
+
+def cmd_exams(a, today):
+    exams = load_exams()
+    shown = False
+    for d in chosen(a.subject):
+        for e in upcoming(exams, d, today):
+            shown = True
+            days = (date.fromisoformat(e["day"]) - today).days
+            scope = [(t, stats(d, t, today)) for t in d.topics if t["leaf"] and in_scope(e, t)]
+            pending = [(t, s) for t, s in scope if s["level"] != "dominado"]
+            untouched = [t["path"] for t, s in pending if not s["sessions"]]
+            print(f"\n{e['name']} de {d.title} em {e['day']} ({days} dias)"
+                  + (" | URGENTE" if days <= URGENT_DAYS else ""))
+            print(f"  Escopo: {len(scope)} assuntos ({', '.join(e['topics']) or 'ementa inteira'}) | "
+                  f"dominados {len(scope) - len(pending)} | pendentes {len(pending)} (não iniciados {len(untouched)})")
+            if pending:
+                print(f"  Ritmo: {len(pending) / max(days, 1):.1f} assuntos/dia para cobrir os pendentes até a prova")
+                print("  Pendentes: " + ", ".join(f"{t['path']} ({s['level']})" for t, s in pending))
+    if not shown:
+        print("Nenhuma prova futura cadastrada." + (f" Datas ficam em {EXAMS}." if not EXAMS.exists() else ""))
+
+
+def add_exam(subject, day, name, topics):
+    d = get(subject)
+    date.fromisoformat(day)  # valida formato
+    paths = []
+    for x in topics:
+        t = d.find(x) or sys.exit(f"Erro: assunto '{x}' não está na ementa de {d.title}.")
+        paths.append(t["path"])
+    EXAMS.parent.mkdir(parents=True, exist_ok=True)
+    if not EXAMS.exists():
+        EXAMS.write_text("# Provas\n\n", encoding="utf-8")
+    lines = EXAMS.read_text(encoding="utf-8").splitlines()
+    same = next((e for e in load_exams() if slug(e["subject"]) == slug(d.title) and norm(e["name"]) == norm(name)), None)
+    name = same["name"] if same else clean(name)
+    line = f"- {day} | {d.title} | {name}" + (f" | assuntos: {', '.join(paths)}" if paths else "")
+    if same:
+        lines[same["line"]] = line  # mesma prova: atualiza data/assuntos
+    else:
+        lines.append(line)
+    EXAMS.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return d, bool(same)
 
 
 def cmd_compare(a, today):
@@ -321,6 +421,9 @@ def main(argv=None):
     s = sub.add_parser("review"); s.add_argument("--subject"); s.add_argument("--n", type=int, default=5)
     s = sub.add_parser("compare"); s.add_argument("subject"); s.add_argument("--days", type=int, default=14)
     s = sub.add_parser("history"); s.add_argument("subject"); s.add_argument("path", nargs="?"); s.add_argument("--n", type=int, default=10)
+    s = sub.add_parser("exam"); s.add_argument("subject"); s.add_argument("date")
+    s.add_argument("--name", default="Prova"); s.add_argument("--topics", default="")
+    s = sub.add_parser("exams"); s.add_argument("--subject")
     a = p.parse_args(argv)
     today = date.fromisoformat(os.environ.get("STUDY_TODAY", date.today().isoformat()))
 
@@ -363,9 +466,12 @@ def main(argv=None):
         if new:
             print(f"Atenção: '{t['path']}' não estava na ementa e foi adicionado.")
         print("Sessão registrada.\n" + line(d.find(t["path"]), stats(d, d.find(t["path"]), today)))
+    elif a.cmd == "exam":
+        d, updated = add_exam(a.subject, a.date, a.name, [x for x in a.topics.split(",") if x.strip()])
+        print(f"{'Atualizada' if updated else 'Cadastrada'}: {a.name} de {d.title} em {a.date} ({EXAMS})")
     else:
-        {"map": cmd_map, "report": cmd_report, "review": cmd_review,
-         "compare": cmd_compare, "history": cmd_history}[a.cmd](a, today)
+        {"map": cmd_map, "report": cmd_report, "review": cmd_review, "compare": cmd_compare,
+         "history": cmd_history, "exams": cmd_exams}[a.cmd](a, today)
 
 
 if __name__ == "__main__":
