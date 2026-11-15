@@ -1,7 +1,14 @@
 #!/bin/sh
-# Liga a skill ao Hermes Agent (symlink, então editar o repo já atualiza a skill).
+# Liga o vault e as skills ao Hermes Agent (symlinks: editar o repo já atualiza o Hermes).
 set -e
-dest="${HERMES_HOME:-$HOME/.hermes}/skills/education"
-mkdir -p "$dest"
-ln -sfn "$(cd "$(dirname "$0")" && pwd)/study-tracker" "$dest/study-tracker"
-echo "Skill instalada em $dest/study-tracker"
+repo="$(cd "$(dirname "$0")" && pwd)"
+home="${HERMES_HOME:-$HOME/.hermes}"
+skills="$home/skills/education"
+mkdir -p "$skills" "$repo/Disciplinas"
+ln -sfn "$repo" "$home/study-tracker"
+for s in "$repo"/skills/*/; do
+    ln -sfn "${s%/}" "$skills/$(basename "$s")"
+done
+# Skill única da v1, substituída pelas de skills/.
+[ -L "$skills/study-tracker" ] && rm "$skills/study-tracker"
+echo "Vault: $repo/Disciplinas | skills: $(ls "$repo/skills" | tr '\n' ' ')"

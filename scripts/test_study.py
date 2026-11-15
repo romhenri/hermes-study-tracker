@@ -1,4 +1,4 @@
-"""python3 study-tracker/scripts/test_study.py"""
+"""python3 scripts/test_study.py"""
 import contextlib
 import io
 import os
@@ -39,11 +39,11 @@ run("log", "Cálculo I", "Derivadas/Regra da cadeia", "--correct", "9", "--total
 run("status", "Cálculo I", "derivadas/regra da cadeia", "done")
 assert "não estava na ementa" in run("log", "Cálculo I", "Séries", "--date", "2026-11-12")
 
-md = (study.DIR / "calculo-i.md").read_text()
-assert "- [~] Integrais\n" in md and "  - [x] Regra da cadeia\n" in md and "- [~] Séries\n" in md, md
+md = (study.DIR / "Cálculo I.md").read_text()
+assert "- [/] Integrais\n" in md and "  - [x] Regra da cadeia\n" in md and "- [/] Séries\n" in md, md
 assert "- 2026-10-20 | Integrais | 4/10 | erros: sinal, constante\n" in md, md
 assert "- 2026-11-12 | Séries | —\n" in md, md
-assert md.index("- [~] Séries") < md.index("## Registro"), md
+assert md.index("- [/] Séries") < md.index("## Registro"), md
 
 m = run("map")
 assert "Integrais: [estudando] | dificuldade" in m and "erros recorrentes: sinal" in m, m
@@ -62,13 +62,13 @@ assert "2026-10-25  Integrais, 3/10 | erros: Sinal" in run("history", "Cálculo 
 assert "maior que" in fails("log", "Cálculo I", "Limites", "--correct", "5", "--total", "2")
 
 # Arquivo editado à mão: seções extras e anotações são preservadas.
-(study.DIR / "fisica-i.md").write_text(
-    "# Física I\n\nProf. Ana, P1 em 02/12\n\n## Assuntos\n- [x] Cinemática\n  - [ ] MRUV\n\n## Provas\n- P1: 02/12\n")
+(study.DIR / "Física I.md").write_text(
+    "# Física I\n\nProf. Ana, P1 em 02/12\n\n## Assuntos\n- [x] Cinemática\n  - [~] MRUV\n\n## Provas\n- P1: 02/12\n")
 run("add", "Física I", "Cinemática/Lançamento")
 run("log", "Física I", "MRUV", "--correct", "8", "--total", "10")
-f = (study.DIR / "fisica-i.md").read_text()
+f = (study.DIR / "Física I.md").read_text()
 assert "Prof. Ana, P1 em 02/12" in f and "## Provas\n- P1: 02/12" in f, f
-assert "  - [~] MRUV\n  - [ ] Lançamento\n" in f, f  # "MRUV" achou o subassunto
+assert "  - [~] MRUV\n  - [ ] Lançamento\n" in f, f  # "MRUV" achou o subassunto; [~] legado = estudando
 assert f.rstrip().endswith("## Registro\n- 2026-11-14 | Cinemática/MRUV | 8/10"), f  # seção criada
 run("add", "Física I", "Dinâmica/MRUV")
 assert "ambíguo" in fails("log", "Física I", "MRUV")

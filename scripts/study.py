@@ -16,8 +16,8 @@ Uso (o agente Hermes chama isto pelo terminal):
 Formato de cada arquivo (editável à mão):
   # Cálculo I
   ## Assuntos
-  - [ ] Limites                       [ ] não iniciado, [~] estudando, [x] concluído
-  - [~] Derivadas
+  - [ ] Limites                       [ ] não iniciado, [/] estudando, [x] concluído
+  - [/] Derivadas
     - [x] Regra da cadeia             subassunto = 2 espaços de recuo
   ## Registro
   - 2026-11-14 | Derivadas | 7/10 | erros: erro de sinal | nota: texto livre
@@ -32,11 +32,12 @@ from collections import Counter
 from datetime import date, timedelta
 from pathlib import Path
 
-DIR = Path(os.environ.get("STUDY_DIR", "~/.hermes/study-tracker")).expanduser()
-MARK = {" ": "todo", "~": "doing", "x": "done"}
-SYMBOL = {v: k for k, v in MARK.items()}
+# Disciplinas/ fica na raiz do vault (o repo); resolve() segue o symlink de instalação.
+DIR = Path(os.environ.get("STUDY_DIR") or Path(__file__).resolve().parents[1] / "Disciplinas").expanduser()
+MARK = {" ": "todo", "/": "doing", "~": "doing", "x": "done"}  # "~" aceito por compatibilidade
+SYMBOL = {"todo": " ", "doing": "/", "done": "x"}
 STATUS = {"todo": "não iniciado", "doing": "estudando", "done": "concluído"}
-TOPIC_RE = re.compile(r"^(\s*)- \[([ ~xX])\] (.+?)\s*$")
+TOPIC_RE = re.compile(r"^(\s*)- \[([ /~xX])\] (.+?)\s*$")
 LOG_RE = re.compile(r"^- (\d{4}-\d{2}-\d{2}) \| (.+?) \| (?:(\d+)/(\d+)|—)(?: \| (.*))?$")
 
 # Domínio: olha só as últimas sessões com exercícios, para refletir o nível atual.
@@ -134,7 +135,7 @@ class Discipline:
         return self.find(new_path), True
 
     def set_status(self, topic, status):
-        self.lines[topic["line"]] = re.sub(r"\[[ ~xX]\]", f"[{SYMBOL[status]}]", self.lines[topic["line"]], count=1)
+        self.lines[topic["line"]] = re.sub(r"\[[ /~xX]\]", f"[{SYMBOL[status]}]", self.lines[topic["line"]], count=1)
         self.parse()
 
     def add_log(self, day, path, correct, total, mistakes, notes):
@@ -327,7 +328,9 @@ def main(argv=None):
         if not slug(a.subject):
             sys.exit("Erro: nome de disciplina inválido.")
         DIR.mkdir(parents=True, exist_ok=True)
-        f = DIR / f"{slug(a.subject)}.md"
+        existing = next((d.file for d in all_disciplines() if slug(d.title) == slug(a.subject)), None)
+        # Nome do arquivo = nome da disciplina, sem os caracteres que o Obsidian não aceita em links.
+        f = existing or DIR / (re.sub(r'[\\/:*?"<>|#^\[\]]', "", clean(a.subject)).strip() + ".md")
         if not f.exists():
             f.write_text(f"# {clean(a.subject)}\n\n## Assuntos\n\n## Registro\n", encoding="utf-8")
         d = Discipline(f)
