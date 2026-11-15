@@ -1,26 +1,43 @@
 #!/usr/bin/env python3
-"""Memória acadêmica do Study Tracker. SQLite, só stdlib.
+"""Memória acadêmica do Study Tracker. Um arquivo Markdown por disciplina, só stdlib.
 
 Uso (o agente Hermes chama isto pelo terminal):
-  study.py add      "Cálculo I" "Integrais/Substituição"
-  study.py status   "Cálculo I" "Integrais" done        # todo | doing | done
-  study.py log      "Cálculo I" "Integrais" --min 120 --correct 7 --total 10 \
-                    --mistakes "sinal,constante" --notes "travei em trigonométricas"
+  study.py setup    "Cálculo I" "Limites" "Derivadas/Regra da cadeia" "Integrais"
+  study.py add      "Cálculo I" "Integrais/Por partes"
+  study.py status   "Cálculo I" "Limites" done              # todo | doing | done
+  study.py log      "Cálculo I" "Integrais" --correct 7 --total 10 \
+                    --mistakes "erro de sinal,constante" --notes "travei em trigonométricas"
   study.py map      ["Cálculo I"]
   study.py report   ["Cálculo I"]
   study.py review   [--subject "Cálculo I"] [--n 5]
   study.py compare  "Cálculo I" [--days 14]
   study.py history  "Cálculo I" ["Integrais"] [--n 10]
+
+Formato de cada arquivo (editável à mão):
+  # Cálculo I
+  ## Assuntos
+  - [ ] Limites                       [ ] não iniciado, [~] estudando, [x] concluído
+  - [~] Derivadas
+    - [x] Regra da cadeia             subassunto = 2 espaços de recuo
+  ## Registro
+  - 2026-11-14 | Derivadas | 7/10 | erros: erro de sinal | nota: texto livre
+  - 2026-11-15 | Limites | —         sessão sem exercícios
 """
 import argparse
 import os
-import sqlite3
+import re
 import sys
+import unicodedata
 from collections import Counter
 from datetime import date, timedelta
+from pathlib import Path
 
-DB = os.environ.get("STUDY_DB", os.path.expanduser("~/.hermes/study-tracker.db"))
+DIR = Path(os.environ.get("STUDY_DIR", "~/.hermes/study-tracker")).expanduser()
+MARK = {" ": "todo", "~": "doing", "x": "done"}
+SYMBOL = {v: k for k, v in MARK.items()}
 STATUS = {"todo": "não iniciado", "doing": "estudando", "done": "concluído"}
+TOPIC_RE = re.compile(r"^(\s*)- \[([ ~xX])\] (.+?)\s*$")
+LOG_RE = re.compile(r"^- (\d{4}-\d{2}-\d{2}) \| (.+?) \| (?:(\d+)/(\d+)|—)(?: \| (.*))?$")
 
 # Domínio: olha só as últimas sessões com exercícios, para refletir o nível atual.
 RECENT_SESSIONS = 3
@@ -28,45 +45,127 @@ MASTERED_ACC, MASTERED_MIN_Q = 0.8, 10
 STRUGGLE_ACC, STRUGGLE_MIN_Q = 0.6, 5
 
 
-def connect(path=DB):
-    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    db = sqlite3.connect(path)
-    db.row_factory = sqlite3.Row
-    db.executescript("""
-        CREATE TABLE IF NOT EXISTS topics (
-            id INTEGER PRIMARY KEY,
-            subject TEXT NOT NULL COLLATE NOCASE,
-            path TEXT NOT NULL COLLATE NOCASE,
-            status TEXT NOT NULL DEFAULT 'todo' CHECK (status IN ('todo','doing','done')),
-            UNIQUE (subject, path));
-        CREATE TABLE IF NOT EXISTS sessions (
-            id INTEGER PRIMARY KEY,
-            topic_id INTEGER NOT NULL REFERENCES topics(id),
-            day TEXT NOT NULL,
-            minutes INTEGER NOT NULL DEFAULT 0 CHECK (minutes >= 0),
-            correct INTEGER NOT NULL DEFAULT 0 CHECK (correct >= 0),
-            total INTEGER NOT NULL DEFAULT 0 CHECK (total >= correct),
-            mistakes TEXT NOT NULL DEFAULT '',
-            notes TEXT NOT NULL DEFAULT '');
-    """)
-    return db
+def norm(s):
+    """Sem acento, minúsculo, espaços colapsados: "Integráis " == "integrais"."""
+    return " ".join(unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode().casefold().split())
 
 
-def topic_id(db, subject, path):
-    path = "/".join(p.strip() for p in path.split("/") if p.strip())
-    db.execute("INSERT OR IGNORE INTO topics (subject, path) VALUES (?, ?)", (subject.strip(), path))
-    return db.execute("SELECT id FROM topics WHERE subject = ? AND path = ?", (subject.strip(), path)).fetchone()[0]
+def key(path):
+    return "/".join(norm(p) for p in path.split("/") if p.strip())
 
 
-def topics(db, subject=None):
-    q = "SELECT * FROM topics" + (" WHERE subject = ?" if subject else "") + " ORDER BY subject, path"
-    return db.execute(q, (subject,) if subject else ()).fetchall()
+def slug(s):
+    return re.sub(r"[^a-z0-9]+", "-", norm(s)).strip("-")
 
 
-def stats(db, tid, today):
-    rows = db.execute("SELECT * FROM sessions WHERE topic_id = ? ORDER BY day, id", (tid,)).fetchall()
-    ex = [r for r in rows if r["total"]][-RECENT_SESSIONS:]
-    correct, total = sum(r["correct"] for r in ex), sum(r["total"] for r in ex)
+def clean(s):
+    return " ".join(s.replace("|", "/").split())
+
+
+class Discipline:
+    def __init__(self, file):
+        self.file = file
+        self.lines = file.read_text(encoding="utf-8").splitlines()
+        self.parse()
+
+    def parse(self):
+        self.title = next((l[2:].strip() for l in self.lines if l.startswith("# ")), self.file.stem)
+        self.topics, self.logs, self.sections = [], [], {}
+        section, stack = None, []
+        for i, l in enumerate(self.lines):
+            if l.startswith("## "):
+                section = norm(l[3:])
+                self.sections[section] = i
+            elif section == "assuntos" and (m := TOPIC_RE.match(l)):
+                stack = stack[: len(m[1].expandtabs(2)) // 2] + [m[3]]
+                self.topics.append({"path": "/".join(stack), "status": MARK[m[2].lower()], "line": i})
+            elif section == "registro" and (m := LOG_RE.match(l)):
+                log = {"day": m[1], "path": m[2], "correct": int(m[3] or 0), "total": int(m[4] or 0),
+                       "mistakes": [], "notes": ""}
+                for field in (m[5] or "").split(" | "):
+                    label, _, value = field.partition(":")
+                    if norm(label) == "erros":
+                        log["mistakes"] = [x.strip() for x in value.split(",") if x.strip()]
+                    elif norm(label) == "nota":
+                        log["notes"] = value.strip()
+                self.logs.append(log)
+
+    def find(self, path):
+        """Caminho completo, ou só o nome de um subassunto ("MRUV" acha "Cinemática/MRUV") se for único."""
+        k = key(path)
+        if t := next((t for t in self.topics if key(t["path"]) == k), None):
+            return t
+        if "/" in k:
+            return None
+        leaves = [t for t in self.topics if key(t["path"]).rsplit("/", 1)[-1] == k]
+        if len(leaves) > 1:
+            sys.exit(f"Erro: '{path}' é ambíguo em {self.title}: " + ", ".join(t["path"] for t in leaves))
+        return leaves[0] if leaves else None
+
+    def section_end(self, name):
+        """Índice logo após a última linha não vazia da seção (cria a seção se faltar)."""
+        if norm(name) not in self.sections:
+            self.lines += ["", f"## {name}"]
+            self.parse()
+        end = start = self.sections[norm(name)]
+        for i in range(start + 1, len(self.lines)):
+            if self.lines[i].startswith("## "):
+                break
+            if self.lines[i].strip():
+                end = i
+        return end + 1
+
+    def add_topic(self, path):
+        """Insere sem reescrever o resto do arquivo. Devolve (tópico, criado?)."""
+        parts = [p.strip() for p in path.split("/") if p.strip()]
+        if not parts:
+            sys.exit("Erro: assunto vazio.")
+        if t := self.find("/".join(parts)):
+            return t, False
+        if len(parts) > 1:
+            parent, _ = self.add_topic("/".join(parts[:-1]))
+            pk = key(parent["path"])
+            idx = 1 + max(t["line"] for t in self.topics if key(t["path"]) == pk or key(t["path"]).startswith(pk + "/"))
+            new_path = parent["path"] + "/" + parts[-1]
+        else:
+            idx, new_path = self.section_end("Assuntos"), parts[0]
+        self.lines.insert(idx, "  " * (len(parts) - 1) + f"- [ ] {parts[-1]}")
+        self.parse()
+        return self.find(new_path), True
+
+    def set_status(self, topic, status):
+        self.lines[topic["line"]] = re.sub(r"\[[ ~xX]\]", f"[{SYMBOL[status]}]", self.lines[topic["line"]], count=1)
+        self.parse()
+
+    def add_log(self, day, path, correct, total, mistakes, notes):
+        line = f"- {day} | {path} | " + (f"{correct}/{total}" if total else "—")
+        if mistakes:
+            line += " | erros: " + ", ".join(clean(m) for m in mistakes)
+        if notes:
+            line += " | nota: " + clean(notes)
+        self.lines.insert(self.section_end("Registro"), line)
+        self.parse()
+
+    def save(self):
+        self.file.write_text("\n".join(self.lines) + "\n", encoding="utf-8")
+
+
+def all_disciplines():
+    return [Discipline(f) for f in sorted(DIR.glob("*.md"))]
+
+
+def get(name):
+    for d in all_disciplines():
+        if slug(d.title) == slug(name) or d.file.stem == slug(name):
+            return d
+    known = ", ".join(d.title for d in all_disciplines()) or "nenhuma"
+    sys.exit(f"Erro: disciplina '{name}' não cadastrada (cadastradas: {known}). Use: study.py setup \"{name}\" ...")
+
+
+def stats(d, t, today):
+    logs = sorted((l for l in d.logs if key(l["path"]) == key(t["path"])), key=lambda l: l["day"])
+    ex = [l for l in logs if l["total"]][-RECENT_SESSIONS:]
+    correct, total = sum(l["correct"] for l in ex), sum(l["total"] for l in ex)
     acc = correct / total if total else None
     if acc is None:
         level = "sem exercícios"
@@ -76,11 +175,10 @@ def stats(db, tid, today):
         level = "dificuldade"
     else:
         level = "em consolidação"
-    last = rows[-1]["day"] if rows else None
-    mistakes = Counter(m.strip().lower() for r in rows for m in r["mistakes"].split(",") if m.strip())
+    last = logs[-1]["day"] if logs else None
+    mistakes = Counter(norm(m) for l in logs for m in l["mistakes"])
     return {
-        "sessions": len(rows),
-        "minutes": sum(r["minutes"] for r in rows),
+        "sessions": len(logs),
         "acc": acc,
         "recent_q": total,
         "level": level,
@@ -106,48 +204,53 @@ def fmt_acc(acc):
     return "—" if acc is None else f"{acc:.0%}"
 
 
-def fmt_min(m):
-    return f"{m // 60}h{m % 60:02d}" if m >= 60 else f"{m}min"
+def pct(n, total):
+    return f"{n / total:.0%}" if total else "—"
 
 
 def line(t, s):
-    bits = [f"[{STATUS[t['status']]}]", s["level"], f"acerto recente {fmt_acc(s['acc'])} ({s['recent_q']}q)",
-            f"{fmt_min(s['minutes'])} em {s['sessions']} sessões"]
-    if s["last"]:
-        bits.append(f"último estudo {s['last']} ({s['days_since']}d atrás)")
+    bits = [f"[{STATUS[t['status']]}]", s["level"]]
+    if s["sessions"]:
+        bits += [f"acerto recente {fmt_acc(s['acc'])} ({s['recent_q']}q)", f"{s['sessions']} sessões",
+                 f"último estudo {s['last']} ({s['days_since']}d atrás)"]
     if s["recurring"]:
         bits.append("erros recorrentes: " + ", ".join(s["recurring"]))
-    return f"  {t['path']}: " + " | ".join(bits)
+    return "  " * t["path"].count("/") + f"  {t['path'].rsplit('/', 1)[-1]}: " + " | ".join(bits)
 
 
-def cmd_map(db, a, today):
-    cur = None
-    for t in topics(db, a.subject):
-        if t["subject"] != cur:
-            cur = t["subject"]
-            print(f"\n## {cur}")
-        print(line(t, stats(db, t["id"], today)))
-    if cur is None:
-        print("Nenhum conteúdo cadastrado ainda.")
+def chosen(subject):
+    return [get(subject)] if subject else all_disciplines()
 
 
-def cmd_report(db, a, today):
-    subjects = sorted({t["subject"] for t in topics(db, a.subject)})
-    if not subjects:
-        print("Nenhum conteúdo cadastrado ainda.")
-    for subj in subjects:
-        ts = [(t, stats(db, t["id"], today)) for t in topics(db, subj)]
-        sess = [s for _, s in ts]
+def cmd_map(a, today):
+    ds = chosen(a.subject)
+    if not ds:
+        print("Nenhuma disciplina cadastrada ainda. Use: study.py setup \"Disciplina\" \"Assunto 1\" ...")
+    for d in ds:
+        print(f"\n## {d.title}  ({d.file})")
+        for t in d.topics:
+            print(line(t, stats(d, t, today)))
+        if not d.topics:
+            print("  (ementa vazia)")
+
+
+def cmd_report(a, today):
+    ds = chosen(a.subject)
+    if not ds:
+        print("Nenhuma disciplina cadastrada ainda.")
+    for d in ds:
+        ts = [(t, stats(d, t, today)) for t in d.topics]
+        n = len(ts)
         c = Counter(t["status"] for t, _ in ts)
-        q = db.execute("SELECT SUM(correct), SUM(total) FROM sessions JOIN topics ON topics.id = topic_id "
-                       "WHERE subject = ?", (subj,)).fetchone()
-        print(f"\n## {subj}")
-        print(f"  Conteúdos: {len(ts)} | concluídos {c['done']} | estudando {c['doing']} | não iniciados {c['todo']}")
-        print(f"  Tempo total: {fmt_min(sum(s['minutes'] for s in sess))} | "
-              f"acerto geral: {fmt_acc(q[0] / q[1] if q[1] else None)} ({q[1] or 0} exercícios)")
+        levels = Counter(s["level"] for _, s in ts)
+        q = sum(l["total"] for l in d.logs)
+        print(f"\n## {d.title}")
+        print(f"  Ementa: {n} assuntos | concluídos {c['done']} ({pct(c['done'], n)}) | estudando {c['doing']} | "
+              f"não iniciados {c['todo']}")
+        print(f"  Domínio: {levels['dominado']} de {n} dominados ({pct(levels['dominado'], n)}) | "
+              f"acerto geral {pct(sum(l['correct'] for l in d.logs), q)} em {q} exercícios")
         for label, level in (("Dominados", "dominado"), ("Dificuldades", "dificuldade")):
-            names = [t["path"] for t, s in ts if s["level"] == level]
-            print(f"  {label}: {', '.join(names) or 'nenhum'}")
+            print(f"  {label}: {', '.join(t['path'] for t, s in ts if s['level'] == level) or 'nenhum'}")
         fake = [t["path"] for t, s in ts if t["status"] == "done" and s["level"] != "dominado"]
         if fake:
             print(f"  Concluídos sem domínio comprovado: {', '.join(fake)}")
@@ -158,87 +261,108 @@ def cmd_report(db, a, today):
             print(f"  Ainda não iniciados: {', '.join(todo)}")
 
 
-def cmd_review(db, a, today):
+def cmd_review(a, today):
     ranked = []
-    for t in topics(db, a.subject):
-        s = stats(db, t["id"], today)
-        score = review_score(t, s)
-        if score is not None:
-            ranked.append((score, t, s))
+    for d in chosen(a.subject):
+        for t in d.topics:
+            s = stats(d, t, today)
+            if (score := review_score(t, s)) is not None:
+                ranked.append((score, d, t, s))
     ranked.sort(key=lambda x: x[0], reverse=True)
     if not ranked:
         print("Sem histórico suficiente para recomendar revisões.")
-    for score, t, s in ranked[: a.n]:
-        print(f"{score:>5}  {t['subject']} › {t['path']}: {s['level']}, acerto {fmt_acc(s['acc'])}, "
+    for score, d, t, s in ranked[: a.n]:
+        print(f"{score:>5}  {d.title} › {t['path']}: {s['level']}, acerto {fmt_acc(s['acc'])}, "
               f"{s['days_since']}d sem estudar" + (f", erros: {', '.join(s['recurring'])}" if s["recurring"] else ""))
 
 
-def cmd_compare(db, a, today):
+def cmd_compare(a, today):
+    d = get(a.subject)
+
     def window(start, end):
-        r = db.execute("SELECT SUM(minutes), SUM(correct), SUM(total), COUNT(*) FROM sessions "
-                       "JOIN topics ON topics.id = topic_id WHERE subject = ? AND day > ? AND day <= ?",
-                       (a.subject, start.isoformat(), end.isoformat())).fetchone()
-        return {"min": r[0] or 0, "acc": r[1] / r[2] if r[2] else None, "q": r[2] or 0, "n": r[3]}
+        ls = [l for l in d.logs if start.isoformat() < l["day"] <= end.isoformat()]
+        q = sum(l["total"] for l in ls)
+        return {"n": len(ls), "topics": len({key(l["path"]) for l in ls}), "q": q,
+                "acc": sum(l["correct"] for l in ls) / q if q else None}
 
     cur = window(today - timedelta(days=a.days), today)
     prev = window(today - timedelta(days=2 * a.days), today - timedelta(days=a.days))
     for label, w in ((f"Últimos {a.days} dias", cur), (f"{a.days} dias anteriores", prev)):
-        print(f"{label}: {w['n']} sessões, {fmt_min(w['min'])}, acerto {fmt_acc(w['acc'])} ({w['q']}q)")
+        print(f"{label}: {w['n']} sessões em {w['topics']} assuntos, acerto {fmt_acc(w['acc'])} ({w['q']}q)")
     if cur["acc"] is not None and prev["acc"] is not None:
-        d = (cur["acc"] - prev["acc"]) * 100
-        print(f"Variação de acerto: {d:+.0f} p.p. ({'melhora' if d > 2 else 'queda' if d < -2 else 'estável'})")
+        diff = (cur["acc"] - prev["acc"]) * 100
+        print(f"Variação de acerto: {diff:+.0f} p.p. ({'melhora' if diff > 2 else 'queda' if diff < -2 else 'estável'})")
 
 
-def cmd_history(db, a, today):
-    q = ("SELECT day, path, minutes, correct, total, mistakes, notes FROM sessions JOIN topics ON topics.id = topic_id "
-         "WHERE subject = ?" + (" AND (path = ? OR path LIKE ?)" if a.path else "") + " ORDER BY day DESC, sessions.id DESC LIMIT ?")
-    args = [a.subject] + ([a.path, a.path + "/%"] if a.path else []) + [a.n]
-    for r in db.execute(q, args):
-        ex = f", {r['correct']}/{r['total']}" if r["total"] else ""
-        extra = "".join(f" | {k}: {r[k]}" for k in ("mistakes", "notes") if r[k])
-        print(f"{r['day']}  {r['path']}: {fmt_min(r['minutes'])}{ex}{extra}")
+def cmd_history(a, today):
+    d = get(a.subject)
+    k = key(a.path) if a.path else None
+    logs = [l for l in d.logs if not k or key(l["path"]) == k or key(l["path"]).startswith(k + "/")]
+    for l in sorted(logs, key=lambda l: l["day"], reverse=True)[: a.n]:
+        extra = f", {l['correct']}/{l['total']}" if l["total"] else ""
+        extra += f" | erros: {', '.join(l['mistakes'])}" if l["mistakes"] else ""
+        extra += f" | nota: {l['notes']}" if l["notes"] else ""
+        print(f"{l['day']}  {l['path']}{extra}")
 
 
-def main(argv=None, db=None):
+def main(argv=None):
     p = argparse.ArgumentParser(description="Study Tracker")
     sub = p.add_subparsers(dest="cmd", required=True)
+    s = sub.add_parser("setup"); s.add_argument("subject"); s.add_argument("topics", nargs="*")
     s = sub.add_parser("add"); s.add_argument("subject"); s.add_argument("path")
     s = sub.add_parser("status"); s.add_argument("subject"); s.add_argument("path"); s.add_argument("status", choices=STATUS)
     s = sub.add_parser("log")
     s.add_argument("subject"); s.add_argument("path")
-    s.add_argument("--min", type=int, default=0); s.add_argument("--correct", type=int, default=0)
-    s.add_argument("--total", type=int, default=0); s.add_argument("--mistakes", default="")
-    s.add_argument("--notes", default=""); s.add_argument("--date", default=None)
+    s.add_argument("--correct", type=int, default=0); s.add_argument("--total", type=int, default=0)
+    s.add_argument("--mistakes", default=""); s.add_argument("--notes", default=""); s.add_argument("--date", default=None)
     for name in ("map", "report"):
         s = sub.add_parser(name); s.add_argument("subject", nargs="?")
     s = sub.add_parser("review"); s.add_argument("--subject"); s.add_argument("--n", type=int, default=5)
     s = sub.add_parser("compare"); s.add_argument("subject"); s.add_argument("--days", type=int, default=14)
     s = sub.add_parser("history"); s.add_argument("subject"); s.add_argument("path", nargs="?"); s.add_argument("--n", type=int, default=10)
     a = p.parse_args(argv)
-
-    db = db or connect()
     today = date.fromisoformat(os.environ.get("STUDY_TODAY", date.today().isoformat()))
-    if a.cmd == "add":
-        topic_id(db, a.subject, a.path)
-        print(f"Cadastrado: {a.subject} › {a.path}")
+
+    if a.cmd == "setup":
+        if not slug(a.subject):
+            sys.exit("Erro: nome de disciplina inválido.")
+        DIR.mkdir(parents=True, exist_ok=True)
+        f = DIR / f"{slug(a.subject)}.md"
+        if not f.exists():
+            f.write_text(f"# {clean(a.subject)}\n\n## Assuntos\n\n## Registro\n", encoding="utf-8")
+        d = Discipline(f)
+        added = [t["path"] for t, new in (d.add_topic(clean(x)) for x in a.topics) if new]
+        d.save()
+        print(f"{d.title}: {len(d.topics)} assuntos na ementa ({len(added)} novos) em {f}")
+    elif a.cmd == "add":
+        d = get(a.subject)
+        t, new = d.add_topic(clean(a.path))
+        d.save()
+        print(f"{'Adicionado' if new else 'Já existia'}: {d.title} › {t['path']}")
     elif a.cmd == "status":
-        db.execute("UPDATE topics SET status = ? WHERE id = ?", (a.status, topic_id(db, a.subject, a.path)))
-        print(f"{a.subject} › {a.path}: {STATUS[a.status]}")
+        d = get(a.subject)
+        t = d.find(a.path) or sys.exit(f"Erro: assunto '{a.path}' não está na ementa de {d.title}.")
+        d.set_status(t, a.status)
+        d.save()
+        print(f"{d.title} › {t['path']}: {STATUS[a.status]}")
     elif a.cmd == "log":
         if a.correct > a.total:
             sys.exit("Erro: --correct maior que --total.")
         day = a.date or today.isoformat()
         date.fromisoformat(day)  # valida formato
-        tid = topic_id(db, a.subject, a.path)
-        db.execute("INSERT INTO sessions (topic_id, day, minutes, correct, total, mistakes, notes) VALUES (?,?,?,?,?,?,?)",
-                   (tid, day, a.min, a.correct, a.total, a.mistakes, a.notes))
-        db.execute("UPDATE topics SET status = 'doing' WHERE id = ? AND status = 'todo'", (tid,))
-        t = db.execute("SELECT * FROM topics WHERE id = ?", (tid,)).fetchone()
-        print("Sessão registrada.\n" + line(t, stats(db, tid, today)))
+        d = get(a.subject)
+        t, new = d.add_topic(clean(a.path))
+        if t["status"] == "todo":
+            d.set_status(t, "doing")
+            t = d.find(t["path"])
+        d.add_log(day, t["path"], a.correct, a.total, [m for m in a.mistakes.split(",") if m.strip()], a.notes)
+        d.save()
+        if new:
+            print(f"Atenção: '{t['path']}' não estava na ementa e foi adicionado.")
+        print("Sessão registrada.\n" + line(d.find(t["path"]), stats(d, d.find(t["path"]), today)))
     else:
         {"map": cmd_map, "report": cmd_report, "review": cmd_review,
-         "compare": cmd_compare, "history": cmd_history}[a.cmd](db, a, today)
-    db.commit()
+         "compare": cmd_compare, "history": cmd_history}[a.cmd](a, today)
 
 
 if __name__ == "__main__":
