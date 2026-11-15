@@ -10,7 +10,8 @@ A ideia central: distinguir assunto **estudado** de assunto **dominado**, com ba
 - `Datas/Provas.md` datas de prova de todas as disciplinas. Também fora do git.
 - `scripts/study.py` única porta de leitura e escrita das notas; `--help` lista os comandos.
 - `scripts/test_study.py` self-check: `python3 scripts/test_study.py` imprime `ok`.
-- `skills/` skills do Hermes, uma por intenção: `study-setup` (disciplinas do semestre), `to-topics` (lista bruta de conteúdos → assuntos e subassuntos), `study-log` (registrar estudo), `study-insights` (relatório, evolução, revisão). A ordem de uso está em `loop.md`.
+- `skills/` skills do Hermes, uma por intenção: `study-setup` (disciplinas do semestre), `to-topics` (lista bruta de conteúdos → assuntos e subassuntos), `study-log` (registrar estudo), `study-insights` (relatório, evolução, revisão), `study-reset` (limpa tudo para um semestre novo). A ordem de uso está em `loop.md`.
+- `.trash/` lixeira do vault (a mesma do Obsidian): o `reset` move as notas para `.trash/reset-<data-hora>/` em vez de apagar. Fora do git.
 - `.claude/skills/` symlinks relativos para `skills/`: as mesmas skills no Claude Code, sem cópia.
 - `install.sh` liga o repo a `~/.hermes/study-tracker` e as skills a `~/.hermes/skills/education/`.
 

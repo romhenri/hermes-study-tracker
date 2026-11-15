@@ -3,6 +3,7 @@ __pycache__/
 .DS_Store
 .obsidian
 .obsidian/workspace*.json
+.trash/
 
 Disciplinas/
 Datas/

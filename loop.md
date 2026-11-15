@@ -74,4 +74,6 @@ A `to-topics` também roda fora do setup: colar uma lista nova de conteúdos a q
 
 Com prova a até 21 dias, a revisão começa por ela: mostra quantos assuntos faltam dominar e o ritmo por dia, e pergunta se você quer priorizar aquela disciplina.
 
+Fora do ciclo, a `study-reset` (`reset`) limpa disciplinas, registros e provas para um semestre novo, movendo tudo para `.trash/` depois de mostrar a lista e pedir confirmação.
+
 Os passos 4 a 6 podem acontecer numa mesma mensagem: "vi integrais, acertei 7 de 10; o que revisar amanhã?" aciona `study-log` e depois `study-insights`.

@@ -104,4 +104,13 @@ run("exam", "Física I", "2026-11-01", "--name", "P0")
 assert "Nenhuma prova futura" in run("exams", "--subject", "Física I")
 assert "Lembrar: P1 com consulta" in study.EXAMS.read_text()
 
+# Reset: sem --yes só lista; com --yes move tudo para .trash/ (recuperável).
+dry = run("reset")
+assert "Nada foi alterado" in dry and "Disciplinas/Cálculo I.md" in dry and "Datas/Provas.md" in dry, dry
+assert (study.DIR / "Cálculo I.md").exists() and study.EXAMS.exists()
+assert "3 arquivos movidos" in run("reset", "--yes")
+assert not list(study.DIR.glob("*.md")) and not study.EXAMS.exists()
+trash = list((study.ROOT / ".trash").glob("reset-*"))
+assert len(trash) == 1 and (trash[0] / "Disciplinas" / "Cálculo I.md").exists() and (trash[0] / "Datas" / "Provas.md").exists()
+assert "Nenhuma disciplina" in run("map") and "Nada para limpar" in run("reset", "--yes")
 print("ok")

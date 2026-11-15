@@ -14,6 +14,7 @@ Uso (o agente Hermes chama isto pelo terminal):
   study.py history  "Cálculo I" ["Integrais"] [--n 10]
   study.py exam     "Cálculo I" 2026-12-02 [--name P1] [--topics "Limites,Derivadas"]
   study.py exams    [--subject "Cálculo I"]
+  study.py reset    [--yes]                                  # sem --yes só lista
 
 Formato de cada arquivo (editável à mão):
   # Cálculo I
@@ -34,7 +35,7 @@ import re
 import sys
 import unicodedata
 from collections import Counter
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 # A raiz do vault é o repo; resolve() segue o symlink de instalação.
@@ -355,6 +356,24 @@ def cmd_exams(a, today):
         print("Nenhuma prova futura cadastrada." + (f" Datas ficam em {EXAMS}." if not EXAMS.exists() else ""))
 
 
+def cmd_reset(a, today):
+    """Move notas e provas para .trash/ do vault (a lixeira do Obsidian): recuperável, nada é apagado."""
+    files = sorted(DIR.glob("*.md")) + ([EXAMS] if EXAMS.exists() else [])
+    if not files:
+        print("Nada para limpar: nenhuma disciplina nem prova cadastrada.")
+        return
+    names = "\n".join(f"  {f.relative_to(ROOT)}" for f in files)
+    if not a.yes:
+        print(f"Seriam movidos para {ROOT / '.trash'}:\n{names}\nNada foi alterado. Rode com --yes para confirmar.")
+        return
+    dest = ROOT / ".trash" / f"reset-{datetime.now():%Y-%m-%d-%H%M%S}"
+    for f in files:
+        target = dest / f.relative_to(ROOT)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        f.rename(target)
+    print(f"Reset feito: {len(files)} arquivos movidos para {dest}\n{names}")
+
+
 def add_exam(subject, day, name, topics):
     d = get(subject)
     date.fromisoformat(day)  # valida formato
@@ -424,6 +443,7 @@ def main(argv=None):
     s = sub.add_parser("exam"); s.add_argument("subject"); s.add_argument("date")
     s.add_argument("--name", default="Prova"); s.add_argument("--topics", default="")
     s = sub.add_parser("exams"); s.add_argument("--subject")
+    s = sub.add_parser("reset"); s.add_argument("--yes", action="store_true")
     a = p.parse_args(argv)
     today = date.fromisoformat(os.environ.get("STUDY_TODAY", date.today().isoformat()))
 
@@ -471,7 +491,7 @@ def main(argv=None):
         print(f"{'Atualizada' if updated else 'Cadastrada'}: {a.name} de {d.title} em {a.date} ({EXAMS})")
     else:
         {"map": cmd_map, "report": cmd_report, "review": cmd_review, "compare": cmd_compare,
-         "history": cmd_history, "exams": cmd_exams}[a.cmd](a, today)
+         "history": cmd_history, "exams": cmd_exams, "reset": cmd_reset}[a.cmd](a, today)
 
 
 if __name__ == "__main__":
