@@ -1,5 +1,7 @@
 __pycache__/
 *.db
 .DS_Store
-Disciplinas/
+.obsidian
 .obsidian/workspace*.json
+
+Disciplinas/
