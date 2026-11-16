@@ -47,6 +47,7 @@ A ideia central: distinguir assunto **estudado** de assunto **dominado**, com ba
 
 ## Regras
 
+- **SIGAA é fonte, não armazenamento.** As skills leem disciplinas, planos e datas pelo MCP `sigaa` e gravam nas notas pelo `study.py`, sempre depois da confirmação do usuário. Ao trocar o `sigaa_ref`, revise o diff do sigaa-tools antes.
 - **Leia e grave notas pelo `study.py`.** O parser depende do formato acima; uma edição à mão fora dele some das contas sem erro.
 - Mudou o formato ou uma regra de domínio? Atualize o parser, o `test_study.py`, a seção acima e a skill afetada no mesmo commit.
 - Limiares de domínio e a heurística de revisão ficam em constantes no topo do `study.py`, fonte única da verdade; as skills só repetem os números para o modelo explicar ao usuário.
