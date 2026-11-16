@@ -1,7 +1,7 @@
 ---
 name: study-setup
-description: Configura o semestre no Study Tracker. Use quando o usuário quiser cadastrar as disciplinas do semestre, importar disciplinas ou provas do SIGAA, informar ou mudar datas de prova, dizer o que já estudou antes de começar, ou quando outra skill do Study Tracker disser que a disciplina não está cadastrada.
-version: 1.3.0
+description: Configura o semestre no Study Tracker. Use quando o usuário quiser cadastrar as disciplinas do semestre, importar disciplinas ou provas do SIGAA, definir siglas, informar ou mudar datas de prova, dizer o que já estudou antes de começar, ou quando outra skill do Study Tracker disser que a disciplina não está cadastrada.
+version: 1.4.0
 metadata:
   hermes:
     tags: [education, study, setup]
@@ -22,6 +22,7 @@ S="python3 ~/.hermes/study-tracker/scripts/study.py"
 1. **Disciplinas.** Rode `$S map` para ver as que já existem e evitar duplicar.
    - Com SIGAA: `sigaa_list_classes` traz as turmas matriculadas (código e nome em maiúsculas). Proponha os nomes em grafia normal, com acento ("CALCULO NUMERICO" → "Cálculo Numérico"), e confirme a lista com o usuário.
    - Sem SIGAA: pergunte as disciplinas do semestre.
+   - Siglas: o flight deck e as respostas chamam cada disciplina por sigla, por padrão as iniciais (Linguagem de Programação II → LP2). Mostre as siglas propostas e pergunte se alguma deve ser diferente; grave só as que o usuário mudar: `$S sigla "Cálculo Numérico" NUM`. Repetir o comando troca a sigla.
 2. **Assuntos.** Para cada disciplina, consiga a lista de assuntos e siga a skill `to-topics`, que organiza e grava a nota.
    - Com SIGAA: `sigaa_get_course_plan(class_code)` traz o plano de curso, cujo `schedule` descreve cada aula. Quando as descrições forem conteúdo ("Integração numérica: trapézio"), use-as como a lista bruta da `to-topics`; se forem genéricas ("Aula 1"), trate como plano vazio.
    - Sem SIGAA, ou plano vazio: peça a ementa ao usuário. Se ele não tiver, crie a nota vazia com `$S setup "Cálculo I"`; os assuntos entram depois pela `to-topics`.
