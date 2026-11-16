@@ -91,7 +91,7 @@ cd hermes-study-tracker
 ./install.sh
 ```
 
-O `install.sh` liga o repo a `~/.hermes/study-tracker` e as skills a `~/.hermes/skills/education/`. Depois, abra a pasta como vault no Obsidian: as notas aparecem em `Disciplinas/`.
+O `install.sh` liga o repo a `~/.hermes/study-tracker` e as skills a `~/.hermes/skills/education/`. Depois, `sigaa init`, `hermes gateway setup` (Telegram) e `./config.sh`; a ordem completa e cada configuração estão em [`CONFIG.md`](CONFIG.md). Depois, abra a pasta como vault no Obsidian: as notas aparecem em `Disciplinas/`.
 
 ## Exemplo de uso
 
