@@ -13,7 +13,7 @@ A ideia central: distinguir assunto **estudado** de assunto **dominado**, com ba
 - `skills/` skills do Hermes, uma por intenção: `study-setup` (disciplinas do semestre), `to-topics` (lista bruta de conteúdos → assuntos e subassuntos), `study-log` (registrar estudo), `study-insights` (relatório, evolução, revisão), `study-reset` (limpa tudo para um semestre novo). A ordem de uso está em `loop.md`.
 - `.trash/` lixeira do vault (a mesma do Obsidian): o `reset` move as notas para `.trash/reset-<data-hora>/` em vez de apagar. Fora do git.
 - `.claude/skills/` symlinks relativos para `skills/`: as mesmas skills no Claude Code, sem cópia.
-- `install.sh` liga o repo a `~/.hermes/study-tracker` e as skills a `~/.hermes/skills/education/`.
+- `install.sh` liga o repo a `~/.hermes/study-tracker` e as skills a `~/.hermes/skills/education/`, instala o [sigaa-tools](https://github.com/PucaVaz/sigaa-tools) fixado num commit revisado (`sigaa_ref`) e registra o MCP `sigaa` no Hermes. O login do SIGAA fica no keychain via `sigaa init`, fora do repo.
 
 ## Formato da nota
 
