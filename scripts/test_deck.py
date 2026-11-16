@@ -5,6 +5,11 @@ from datetime import date, datetime
 
 sys.path.insert(0, os.path.dirname(__file__))
 import deck  # noqa: E402
+import study  # noqa: E402
+import tempfile  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+study.SIGLAS = Path(tempfile.mkdtemp()) / "Siglas.md"  # isola das siglas reais do vault
 
 today = date(2026, 11, 15)
 assert deck.parse_day("09/11 à 08/12", today) == date(2026, 12, 8)  # intervalo sem ano: fim
@@ -40,4 +45,7 @@ assert "🟦⬜⬜⬜⬜⬜⬜⬜⬜⬜ 13% · TS 2/15" in text, text
 assert "Menor margem: CN, 0 faltas" in text, text
 assert "Total: 18/30 faltas" in text and "TOT" not in text, text  # rótulos nunca abreviados
 assert "⬜ margem" not in text and not any(c in text for c in "⬛🟫🟥🟨🟩"), text  # binário, sem legenda nem preto
+study.SIGLAS.write_text("# Siglas\n\n- Cálculo Numérico: NUM\n")
+s2 = "\n".join(deck.render(data, today, datetime(2026, 11, 15)))
+assert "11/11 · NUM · Aula" in s2 and "· NUM 16/15 !" in s2 and "Menor margem: NUM" in s2 and "· TS " in s2, s2
 print("ok")

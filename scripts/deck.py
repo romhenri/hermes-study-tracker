@@ -122,7 +122,8 @@ def _try(fn, *args):
 
 def render(data, today, now):
     # Texto corrido (mensagem do Telegram, fonte proporcional): nada depende de espaços para alinhar.
-    acr = acronym
+    siglas = study.load_siglas()  # sigla do setup (Siglas.md) vence as iniciais
+    acr = lambda name: siglas.get(study.slug(name)) or acronym(name)
     out = [f"FLIGHT DECK · {WEEKDAY[now.weekday()]} {now:%d/%m %H:%M}", ""]
 
     out.append(f"NOTÍCIAS · {data['unread']} não lidas")
