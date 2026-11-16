@@ -12,6 +12,7 @@ import study  # noqa: E402
 
 study.ROOT = Path(tempfile.mkdtemp())
 study.DIR, study.EXAMS = study.ROOT / "Disciplinas", study.ROOT / "Datas" / "Provas.md"
+study.SIGLAS = study.ROOT / "Siglas.md"
 
 
 def run(*argv):
@@ -104,12 +105,21 @@ run("exam", "Física I", "2026-11-01", "--name", "P0")
 assert "Nenhuma prova futura" in run("exams", "--subject", "Física I")
 assert "Lembrar: P1 com consulta" in study.EXAMS.read_text()
 
+# Siglas: Siglas.md, casadas pelo nome sem acento/maiúscula; repetir atualiza.
+run("sigla", "INTRODUÇÃO AO PROCESSAMENTO DIGITAL DE IMAGENS", "pdi")
+run("sigla", "Cálculo Numérico", "NUM")
+run("sigla", "calculo numerico", "CNUM")
+assert study.load_siglas() == {study.slug("Introdução ao Processamento Digital de Imagens"): "PDI",
+                               study.slug("Cálculo Numérico"): "CNUM"}, study.load_siglas()
+assert study.SIGLAS.read_text().count("- ") == 2
+assert "1 a 6" in fails("sigla", "Cálculo Numérico", "SIGLA-LONGA")
+
 # Reset: sem --yes só lista; com --yes move tudo para .trash/ (recuperável).
 dry = run("reset")
 assert "Nada foi alterado" in dry and "Disciplinas/Cálculo I.md" in dry and "Datas/Provas.md" in dry, dry
 assert (study.DIR / "Cálculo I.md").exists() and study.EXAMS.exists()
-assert "3 arquivos movidos" in run("reset", "--yes")
-assert not list(study.DIR.glob("*.md")) and not study.EXAMS.exists()
+assert "4 arquivos movidos" in run("reset", "--yes")
+assert not list(study.DIR.glob("*.md")) and not study.EXAMS.exists() and not study.SIGLAS.exists()
 trash = list((study.ROOT / ".trash").glob("reset-*"))
 assert len(trash) == 1 and (trash[0] / "Disciplinas" / "Cálculo I.md").exists() and (trash[0] / "Datas" / "Provas.md").exists()
 assert "Nenhuma disciplina" in run("map") and "Nada para limpar" in run("reset", "--yes")

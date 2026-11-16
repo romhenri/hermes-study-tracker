@@ -8,6 +8,7 @@ A ideia central: distinguir assunto **estudado** de assunto **dominado**, com ba
 
 - `Disciplinas/` dados do usuário, uma nota por disciplina (`Cálculo I.md`). Fora do git: o repo é público.
 - `Datas/Provas.md` datas de prova de todas as disciplinas. Também fora do git.
+- `Siglas.md` siglas próprias das disciplinas (`- Cálculo Numérico: NUM`), gravadas por `study.py sigla`; sem entrada, vale a sigla pelas iniciais. Fora do git.
 - `scripts/study.py` única porta de leitura e escrita das notas; `--help` lista os comandos.
 - `scripts/test_study.py` self-check: `python3 scripts/test_study.py` imprime `ok`.
 - `scripts/deck.py` flight deck: painel em texto corrido (lê bem como mensagem do Telegram, sem bloco de código), com notícias, datas e faltas, lendo o CLI `sigaa` e o `Datas/Provas.md`. Self-check: `python3 scripts/test_deck.py`.

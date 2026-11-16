@@ -14,6 +14,7 @@ Uso (o agente Hermes chama isto pelo terminal):
   study.py history  "Cálculo I" ["Integrais"] [--n 10]
   study.py exam     "Cálculo I" 2026-12-02 [--name P1] [--topics "Limites,Derivadas"]
   study.py exams    [--subject "Cálculo I"]
+  study.py sigla    "Cálculo Numérico" NUM                  # sigla própria; senão, iniciais
   study.py reset    [--yes]                                  # sem --yes só lista
 
 Formato de cada arquivo (editável à mão):
@@ -42,6 +43,7 @@ from pathlib import Path
 ROOT = Path(os.environ.get("STUDY_ROOT") or Path(__file__).resolve().parents[1]).expanduser()
 DIR = ROOT / "Disciplinas"
 EXAMS = ROOT / "Datas" / "Provas.md"
+SIGLAS = ROOT / "Siglas.md"
 MARK = {" ": "todo", "/": "doing", "~": "doing", "x": "done"}  # "~" aceito por compatibilidade
 SYMBOL = {"todo": " ", "doing": "/", "done": "x"}
 STATUS = {"todo": "não iniciado", "doing": "estudando", "done": "concluído"}
@@ -204,6 +206,29 @@ def stats(d, t, today):
     }
 
 
+def load_siglas():
+    """Siglas.md: "- Nome da disciplina: SIGLA" por linha → {slug do nome: SIGLA}."""
+    if not SIGLAS.exists():
+        return {}
+    pairs = (re.match(r"^- (.+): (\S+)\s*$", l) for l in SIGLAS.read_text(encoding="utf-8").splitlines())
+    return {slug(m[1]): m[2] for m in pairs if m}
+
+
+def set_sigla(name, sigla):
+    sigla = sigla.strip().upper()
+    if not re.fullmatch(r"[A-Z0-9]{1,6}", sigla):
+        sys.exit("Erro: sigla precisa ter de 1 a 6 letras ou números.")
+    lines = SIGLAS.read_text(encoding="utf-8").splitlines() if SIGLAS.exists() else ["# Siglas", ""]
+    line = f"- {clean(name)}: {sigla}"
+    i = next((i for i, l in enumerate(lines) if (m := re.match(r"^- (.+): \S+\s*$", l)) and slug(m[1]) == slug(name)), None)
+    if i is None:
+        lines.append(line)
+    else:
+        lines[i] = line
+    SIGLAS.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return sigla
+
+
 def load_exams():
     if not EXAMS.exists():
         return []
@@ -357,8 +382,8 @@ def cmd_exams(a, today):
 
 
 def cmd_reset(a, today):
-    """Move notas e provas para .trash/ do vault (a lixeira do Obsidian): recuperável, nada é apagado."""
-    files = sorted(DIR.glob("*.md")) + ([EXAMS] if EXAMS.exists() else [])
+    """Move notas, provas e siglas para .trash/ do vault (a lixeira do Obsidian): recuperável, nada é apagado."""
+    files = sorted(DIR.glob("*.md")) + [f for f in (EXAMS, SIGLAS) if f.exists()]
     if not files:
         print("Nada para limpar: nenhuma disciplina nem prova cadastrada.")
         return
@@ -443,6 +468,7 @@ def main(argv=None):
     s = sub.add_parser("exam"); s.add_argument("subject"); s.add_argument("date")
     s.add_argument("--name", default="Prova"); s.add_argument("--topics", default="")
     s = sub.add_parser("exams"); s.add_argument("--subject")
+    s = sub.add_parser("sigla"); s.add_argument("subject"); s.add_argument("sigla")
     s = sub.add_parser("reset"); s.add_argument("--yes", action="store_true")
     a = p.parse_args(argv)
     today = date.fromisoformat(os.environ.get("STUDY_TODAY", date.today().isoformat()))
@@ -486,6 +512,8 @@ def main(argv=None):
         if new:
             print(f"Atenção: '{t['path']}' não estava na ementa e foi adicionado.")
         print("Sessão registrada.\n" + line(d.find(t["path"]), stats(d, d.find(t["path"]), today)))
+    elif a.cmd == "sigla":
+        print(f"{clean(a.subject)} → {set_sigla(a.subject, a.sigla)} ({SIGLAS})")
     elif a.cmd == "exam":
         d, updated = add_exam(a.subject, a.date, a.name, [x for x in a.topics.split(",") if x.strip()])
         print(f"{'Atualizada' if updated else 'Cadastrada'}: {a.name} de {d.title} em {a.date} ({EXAMS})")
