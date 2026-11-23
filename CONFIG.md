@@ -19,8 +19,9 @@ Rodar `install.sh` ou `config.sh` de novo é seguro: os dois atualizam o que já
 | `cron.wrap_response` | `false` | Mensagens de agendamento chegam no Telegram só com o conteúdo, sem o cabeçalho "Cronjob Response: …" e o rodapé "To stop or manage this job…". Vale para todos os agendamentos do Hermes. |
 | `skills.disabled` | `[google-workspace]` | A agenda passa pelo MCP `notion` (ver [CONNECTIONS.md](CONNECTIONS.md)). A skill embutida `google-workspace` pegava os pedidos de agenda e pedia um arquivo `client_secret` do Google Cloud. |
 | Agendamento "Check-in de estudos 19h" | `0 19 * * 1-5`, fuso `America/Sao_Paulo`, skill `study-insights`, entrega `telegram`, `--catch-up off` | Check-in nos dias úteis: prova urgente primeiro (pedindo prioridade), até 3 revisões com o motivo e a pergunta "o que você estudou hoje?". Com o Mac desligado às 19h, o dia é pulado, para não chegar atrasado. |
+| Agendamento "Compromissos do dia" | `0 7,12,18 * * *`, fuso `America/Sao_Paulo`, entrega `telegram`, `--catch-up off` | Às 7h, 12h e 18h, os eventos que faltam no dia, lidos do Google Calendar pelo MCP `notion` (somente leitura). Sem evento restante, o agente responde `[SILENT]` e nada chega. |
 
-O texto do check-in está no próprio `config.sh`, que é a fonte dele: edite lá e rode o script de novo. Uma edição feita com `hermes cron edit` é sobrescrita na próxima execução.
+O texto dos agendamentos está no próprio `config.sh`, que é a fonte dele: edite lá e rode o script de novo. Uma edição feita com `hermes cron edit` é sobrescrita na próxima execução.
 
 ## Aplicadas pelo `install.sh`
 
