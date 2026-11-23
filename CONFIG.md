@@ -28,7 +28,7 @@ O texto dos agendamentos está no próprio `config.sh`, que é a fonte dele: edi
 | Configuração | Onde | Por quê |
 |---|---|---|
 | Link do vault | `~/.hermes/study-tracker` → este repo | As skills chamam `~/.hermes/study-tracker/scripts/study.py` de qualquer pasta. |
-| Links das skills | `~/.hermes/skills/education/<skill>` | O Hermes descobre as skills; editar o repo já atualiza o Hermes. |
+| `skills.external_dirs` | `[~/.hermes/study-tracker/skills]` em `~/.hermes/config.yaml` | O Hermes descobre as skills do repo; editar o repo já atualiza o Hermes. Antes eram symlinks em `skills/education/`, mas o Hermes não acha skill em pasta-symlink na hora de editar, e as melhorias que ele mesmo aprende se perdiam. |
 | MCP `sigaa` | `mcp_servers` em `~/.hermes/config.yaml`, `connect_timeout` 60, todas as tools | O servidor leva uns 7 segundos para subir; com o tempo padrão de 30 segundos, a conexão falhava às vezes. |
 
 ## Manuais (pessoais ou secretas, nunca no repo)

@@ -12,10 +12,10 @@ A ideia central: distinguir assunto **estudado** de assunto **dominado**, com ba
 - `scripts/study.py` única porta de leitura e escrita das notas; `--help` lista os comandos.
 - `scripts/test_study.py` self-check: `python3 scripts/test_study.py` imprime `ok`.
 - `scripts/deck.py` flight deck: painel em texto corrido (lê bem como mensagem do Telegram, sem bloco de código), com notícias, datas e faltas, lendo o CLI `sigaa` e o `Datas/Provas.md`. Self-check: `python3 scripts/test_deck.py`.
-- `skills/` skills do Hermes, uma por intenção: `study-setup` (disciplinas do semestre), `to-topics` (lista bruta de conteúdos → assuntos e subassuntos), `study-log` (registrar estudo), `study-insights` (relatório, evolução, revisão), `study-reset` (limpa tudo para um semestre novo), `flight-deck` (painel do semestre). A ordem de uso está em `loop.md`.
+- `skills/` skills do Hermes, uma por intenção: `study-setup` (disciplinas do semestre), `to-topics` (lista bruta de conteúdos → assuntos e subassuntos), `study-log` (registrar estudo), `study-insights` (relatório, evolução, revisão), `study-reset` (limpa tudo para um semestre novo), `flight-deck` (painel do semestre). A ordem de uso está em `loop.md`. O Hermes lê esta pasta por `skills.external_dirs`; quando ele melhora uma skill sozinho (`skill_manage`), a mudança cai aqui e aparece no `git status` para revisão.
 - `.trash/` lixeira do vault (a mesma do Obsidian): o `reset` move as notas para `.trash/reset-<data-hora>/` em vez de apagar. Fora do git.
 - `.claude/skills/` symlinks relativos para `skills/`: as mesmas skills no Claude Code, sem cópia.
-- `install.sh` liga o repo a `~/.hermes/study-tracker` e as skills a `~/.hermes/skills/education/`, instala o [sigaa-tools](https://github.com/PucaVaz/sigaa-tools) fixado num commit revisado (`sigaa_ref`) e registra o MCP `sigaa` no Hermes. O login do SIGAA fica no keychain via `sigaa init`, fora do repo.
+- `install.sh` liga o repo a `~/.hermes/study-tracker` e registra `skills/` em `skills.external_dirs`, instala o [sigaa-tools](https://github.com/PucaVaz/sigaa-tools) fixado num commit revisado (`sigaa_ref`) e registra o MCP `sigaa` no Hermes. O login do SIGAA fica no keychain via `sigaa init`, fora do repo.
 - `config.sh` aplica as configurações do Hermes (cabeçalho de cron desligado, check-in das 19h); `CONFIG.md` lista todas as configurações fora do repo, quem aplica e por quê.
 - `CONNECTIONS.md` conexões externas recomendadas (MCPs e canais), o papel de cada uma e os cuidados. Serviço externo é fonte ou vitrine; o progresso fica no vault.
 
