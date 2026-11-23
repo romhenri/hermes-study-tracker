@@ -11,7 +11,7 @@ Regra comum: **o vault é a fonte da verdade.** Um serviço externo é fonte de 
 | `sigaa` | Fonte: disciplinas, planos de curso, provas, notícias, faltas | `./install.sh` registra o MCP; `sigaa init` salva o login. Detalhes em [CONFIG.md](CONFIG.md). |
 | Telegram | Canal: conversa com o bot, check-in das 19h, flight deck | `hermes gateway setup` e `./config.sh`. |
 | `notion` | Vitrine: espelho das disciplinas, do domínio e das provas | `hermes mcp install notion` e `hermes mcp login notion`. Libere só uma página dedicada ("Study Tracker"), não o workspace inteiro. |
-| Google Calendar | Agenda: provas viram eventos com lembrete | Pelo próprio MCP `notion`, com as tools `notion-calendar-*`: elas leem e gravam nas contas Google conectadas ao [Notion Calendar](https://www.notion.com/product/calendar). Basta conectar a conta Google lá; sem MCP extra, sem projeto no Google Cloud. Grave só no calendário principal. |
+| Google Calendar | Agenda: provas viram eventos com lembrete | Pelo próprio MCP `notion`, com as tools `notion-calendar-*`: elas leem e gravam nas contas Google conectadas ao [Notion Calendar](https://www.notion.com/product/calendar). Basta conectar a conta Google lá; sem MCP extra, sem projeto no Google Cloud. Grave só no calendário principal. O `config.sh` desativa a skill embutida `google-workspace`, que disputava esses pedidos e pedia credenciais do Google Cloud. |
 
 ## Recomendadas
 

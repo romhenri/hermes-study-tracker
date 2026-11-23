@@ -8,6 +8,11 @@ command -v hermes >/dev/null || { echo "hermes não está no PATH (rode o instal
 hermes config set cron.wrap_response false >/dev/null
 echo "cron.wrap_response = false"
 
+# Agenda: o Google Calendar entra pelas tools notion-calendar-* do MCP notion. A skill embutida
+# google-workspace pede um client_secret do Google Cloud e roubava os pedidos de agenda.
+hermes config set skills.disabled '["google-workspace"]' --force >/dev/null
+echo "skills.disabled = [google-workspace]"
+
 # 2. Check-in de estudos às 19h nos dias úteis, no Telegram. Este arquivo é a fonte do texto:
 #    se o job já existe, o texto e o horário são sobrescritos com os daqui.
 name="Check-in de estudos 19h"
