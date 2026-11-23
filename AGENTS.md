@@ -17,6 +17,7 @@ A ideia central: distinguir assunto **estudado** de assunto **dominado**, com ba
 - `.claude/skills/` symlinks relativos para `skills/`: as mesmas skills no Claude Code, sem cópia.
 - `install.sh` liga o repo a `~/.hermes/study-tracker` e as skills a `~/.hermes/skills/education/`, instala o [sigaa-tools](https://github.com/PucaVaz/sigaa-tools) fixado num commit revisado (`sigaa_ref`) e registra o MCP `sigaa` no Hermes. O login do SIGAA fica no keychain via `sigaa init`, fora do repo.
 - `config.sh` aplica as configurações do Hermes (cabeçalho de cron desligado, check-in das 19h); `CONFIG.md` lista todas as configurações fora do repo, quem aplica e por quê.
+- `CONNECTIONS.md` conexões externas recomendadas (MCPs e canais), o papel de cada uma e os cuidados. Serviço externo é fonte ou vitrine; o progresso fica no vault.
 
 ## Formato da nota
 
